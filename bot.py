@@ -38,7 +38,12 @@ def is_youtube_url(text: str) -> bool:
 
 
 def get_video_info(url: str) -> dict:
-    ydl_opts = {"quiet": True, "no_warnings": True, "skip_download": True}
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "proxy": PROXY_URL,
+    }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
     return info
@@ -173,6 +178,7 @@ def download_media(url: str, fmt: str, quality: str) -> str:
                 "preferredcodec": "mp3",
                 "preferredquality": "192",
             }],
+            "proxy": PROXY_URL,
             "quiet": True,
         }
     else:
@@ -181,6 +187,7 @@ def download_media(url: str, fmt: str, quality: str) -> str:
             "format": f"bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/best[height<={height}][ext=mp4]/best[height<={height}]",
             "outtmpl": os.path.join(DOWNLOAD_DIR, "%(title)s.%(ext)s"),
             "merge_output_format": "mp4",
+            "proxy": PROXY_URL,
             "quiet": True,
         }
 
