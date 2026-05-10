@@ -8,17 +8,20 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.client.session.aiohttp import AiohttpSession
 from dotenv import load_dotenv
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DOWNLOAD_DIR = os.getenv("DOWNLOAD_DIR", "/tmp/yt_downloads")
+PROXY_URL = os.getenv("PROXY_URL", "socks5://127.0.0.1:10808")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-bot = Bot(token=BOT_TOKEN)
+session = AiohttpSession(proxy=PROXY_URL)
+bot = Bot(token=BOT_TOKEN, session=session)
 dp = Dispatcher()
 
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
