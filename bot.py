@@ -86,8 +86,19 @@ def build_format_keyboard(url: str, info: dict) -> InlineKeyboardMarkup:
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
     await message.answer(
-        "Привет! Отправь мне ссылку на YouTube видео, "
-        "и я предложу варианты для скачивания."
+        "👋 Привет, <b>{}</b>!\n\n"
+        "🎬 Я умею скачивать видео и аудио с YouTube.\n\n"
+        "Просто отправь мне ссылку на видео — и я покажу доступные форматы:\n"
+        "  • 🎵 <b>MP3</b> — только аудио, 192 kbps\n"
+        "  • 🎬 <b>MP4</b> — видео в разных качествах (до 1080p)\n\n"
+        "⚠️ Лимит Telegram — <b>50 МБ</b>. Длинные видео лучше качать в 480p или как MP3.\n\n"
+        "📎 Поддерживаемые форматы ссылок:\n"
+        "  <code>https://youtube.com/watch?v=...</code>\n"
+        "  <code>https://youtu.be/...</code>\n"
+        "  <code>https://youtube.com/shorts/...</code>".format(
+            message.from_user.first_name
+        ),
+        parse_mode="HTML"
     )
 
 
@@ -96,10 +107,15 @@ async def handle_message(message: types.Message):
     text = message.text.strip()
 
     if not is_youtube_url(text):
-        await message.answer("Это не похоже на ссылку YouTube. Попробуй ещё раз.")
+        await message.answer(
+            "❌ Это не похоже на ссылку YouTube.\n\n"
+            "Отправь ссылку в формате:\n"
+            "<code>https://youtube.com/watch?v=...</code>",
+            parse_mode="HTML"
+        )
         return
 
-    status_msg = await message.answer("⏳ Получаю информацию о видео...")
+    status_msg = await message.answer("🔍 Получаю информацию о видео...")
 
     try:
         info = await asyncio.get_event_loop().run_in_executor(
@@ -113,13 +129,17 @@ async def handle_message(message: types.Message):
     title = info.get("title", "Видео")
     duration = info.get("duration", 0)
     mins, secs = divmod(duration, 60)
+    view_count = info.get("view_count", 0)
+    uploader = info.get("uploader", "")
+    views_str = f"{view_count:,}".replace(",", " ") if view_count else "—"
 
     keyboard = build_format_keyboard(text, info)
 
     await status_msg.edit_text(
         f"📹 <b>{title}</b>\n"
-        f"⏱ Длительность: {mins}:{secs:02d}\n\n"
-        f"Выбери формат для скачивания:",
+        f"👤 {uploader}\n"
+        f"⏱ {mins}:{secs:02d}  •  👁 {views_str} просмотров\n\n"
+        f"⬇️ Выбери формат для скачивания:",
         reply_markup=keyboard,
         parse_mode="HTML"
     )
@@ -136,7 +156,7 @@ async def handle_download(callback: types.CallbackQuery):
 
     _, fmt, quality, url = parts
 
-    status_msg = await callback.message.edit_text("⬇️ Скачиваю, подожди...")
+    status_msg = await callback.message.edit_text("⬇️ Скачиваю файл, это может занять пару минут...")
 
     try:
         file_path = await asyncio.get_event_loop().run_in_executor(
@@ -147,7 +167,7 @@ async def handle_download(callback: types.CallbackQuery):
         await status_msg.edit_text("❌ Ошибка при скачивании. Попробуй другой формат или позже.")
         return
 
-    await status_msg.edit_text("📤 Загружаю файл в Telegram...")
+    await status_msg.edit_text("📤 Отправляю файл в Telegram...")
 
     try:
         input_file = FSInputFile(file_path)
