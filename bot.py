@@ -52,10 +52,15 @@ def get_video_info(url: str) -> dict:
 def build_format_keyboard(url: str, info: dict) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
-    # MP3 audio
+    # MP3 audio (192kbps)
     builder.button(
-        text="🎵 MP3 (аудио)",
-        callback_data=f"dl:mp3:best:{url}"
+        text="🎵 MP3 (192kbps)",
+        callback_data=f"dl:mp3:192:{url}"
+    )
+    # M4A audio
+    builder.button(
+        text="🎧 M4A (аудио)",
+        callback_data=f"dl:m4a:best:{url}"
     )
 
     # MP4 variants — собираем уникальные высоты
@@ -63,7 +68,7 @@ def build_format_keyboard(url: str, info: dict) -> InlineKeyboardMarkup:
     formats = info.get("formats", [])
     video_formats = []
     for f in formats:
-        if f.get("vcodec") != "none" and f.get("acodec") != "none":
+        if f.get("vcodec") != "none" and f.get("acodec") != "none" and f.get("ext") == "mp4":
             h = f.get("height")
             if h and h not in seen:
                 seen.add(h)
@@ -78,6 +83,12 @@ def build_format_keyboard(url: str, info: dict) -> InlineKeyboardMarkup:
             text=f"🎬 MP4 {h}p",
             callback_data=f"dl:mp4:{h}:{url}"
         )
+
+    # WebM вариант
+    builder.button(
+        text="🎞 WebM (видео)",
+        callback_data=f"dl:webm:best:{url}"
+    )
 
     builder.adjust(1)
     return builder.as_markup()
@@ -189,23 +200,39 @@ async def handle_download(callback: types.CallbackQuery):
 
 
 def download_media(url: str, fmt: str, quality: str) -> str:
+    outtmpl = os.path.join(DOWNLOAD_DIR, "%(title)s.%(ext)s")
+    
     if fmt == "mp3":
         ydl_opts = {
             "format": "bestaudio/best",
-            "outtmpl": os.path.join(DOWNLOAD_DIR, "%(title)s.%(ext)s"),
+            "outtmpl": outtmpl,
             "postprocessors": [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "mp3",
-                "preferredquality": "192",
+                "preferredquality": quality,
             }],
             "proxy": PROXY_URL,
             "quiet": True,
         }
-    else:
+    elif fmt == "m4a":
+        ydl_opts = {
+            "format": "bestaudio[ext=m4a]",
+            "outtmpl": outtmpl,
+            "proxy": PROXY_URL,
+            "quiet": True,
+        }
+    elif fmt == "webm":
+        ydl_opts = {
+            "format": "bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]",
+            "outtmpl": outtmpl,
+            "proxy": PROXY_URL,
+            "quiet": True,
+        }
+    else: # mp4
         height = quality
         ydl_opts = {
             "format": f"bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/best[height<={height}][ext=mp4]/best[height<={height}]",
-            "outtmpl": os.path.join(DOWNLOAD_DIR, "%(title)s.%(ext)s"),
+            "outtmpl": outtmpl,
             "merge_output_format": "mp4",
             "proxy": PROXY_URL,
             "quiet": True,
@@ -219,6 +246,9 @@ def download_media(url: str, fmt: str, quality: str) -> str:
         if fmt == "mp3":
             base = os.path.splitext(file_path)[0]
             file_path = base + ".mp3"
+        elif fmt == "m4a":
+            base = os.path.splitext(file_path)[0]
+            file_path = base + ".m4a"
 
     return file_path
 
